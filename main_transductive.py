@@ -63,8 +63,8 @@ def main():
     config.read(args.cfg)
 
     cfg = config['experimento']
-
-    dataset = cfg.get('dataset')
+    
+    datasets = [x.strip() for x in cfg.get('datasets').split(',')]   
     
     victims = json.loads(cfg.get('victims')) 
     surrogates = json.loads(cfg.get('surrogates'))
@@ -85,7 +85,7 @@ def main():
 
     query_limit = cfg.getint('query_limit')
 
-    tqdm_off = False
+    tqdm_off = True
     
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     
@@ -94,20 +94,19 @@ def main():
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     
-    # carregar o dataset
-    if dataset in ['cora','citeseer','pubmed']:
-        dataset = Planetoid(root='./datasets/Planetoid', name=dataset)
-    elif dataset in ['flickr']:
-        dataset = Flickr(root='./datasets/Flickr')
-    elif dataset in ['cs','physics']:
-        dataset = Coauthor(root='./datasets/Coauthor', name=dataset)
-    else:
-        raise ValueError(f"Dataset inválido: {dataset} não está disponível na implementação")
-    
-    dataset.to(device)
-    loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-    
-    for num, (victim_cfg, surrogate_cfg) in enumerate(product(victims, surrogates), 1):
+    for num, (victim_cfg, surrogate_cfg, dataset_name) in enumerate(product(victims, surrogates, datasets), 1):
+        
+        if dataset_name in ['cora','citeseer','pubmed']:
+            dataset = Planetoid(root='./datasets/Planetoid', name=dataset_name)
+        elif dataset_name in ['flickr']:
+            dataset = Flickr(root='./datasets/Flickr')
+        elif dataset_name in ['cs','physics']:
+            dataset = Coauthor(root='./datasets/Coauthor', name=dataset_name)
+        else:
+            raise ValueError(f"Dataset inválido: {dataset_name} não está disponível na implementação")
+        
+        dataset.to(device)
+        loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
         
         victim = victim_cfg['model'] 
         victim_hidden_size = victim_cfg['hidden_size'] 
@@ -116,7 +115,7 @@ def main():
         surrogate_conv = surrogate_cfg['conv'] 
         surrogate_act = surrogate_cfg['act']
         
-        print(f"Experimento #{num} - Modelo Vítima: {victim.upper()} - Modelo Surrogate: {surrogate_conv.upper()} com {surrogate_act} ")
+        print(f"Experimento #{num} - Modelo Vítima: {victim.upper()} - Modelo Surrogate: {surrogate_conv.upper()} com {surrogate_act} - Dataset: {dataset_name} ")
     
         if victim == 'gat':
             victim_model = GAT(in_channels=dataset.num_features, hidden_channels=victim_hidden_size, out_channels=dataset.num_classes, num_layers=victim_layer_num, act='relu', dropout=0.5).to(device)
@@ -200,6 +199,8 @@ def main():
         selected_idx = select_indices(encoder(dataset[0].x, dataset[0].edge_index).cpu().detach(), query_limit)
         selected_idx = torch.sort(torch.tensor(selected_idx)).values
         
+        random_idx = torch.randperm(dataset[0].x.size()[0])[:query_limit].sort().values
+        
         # usar a vitima para encontrar os rotulos dos embeddings
         victim_pred = victim_model(dataset[0].x, dataset[0].edge_index)
         victim_pred = torch.argmax(victim_pred, dim=-1)
@@ -238,7 +239,50 @@ def main():
         y_pred = torch.cat(y_pred).numpy()
         y_true = torch.cat(y_true).numpy()
                 
-        print("Acurácia do Surrogate:",accuracy_score(y_true, y_pred))
+        print("Acurácia do Surrogate (Select):",accuracy_score(y_true, y_pred))
+        
+        # agora vamos utilizar os nós escolhidos randomicamente ao invés dos obtidos pelo k-means
+        
+        surrogate_head = HeadMLP(embedding_hidden_size, dataset.num_classes).to(device)
+        surrogate_optimizer = torch.optim.Adam(surrogate_head.parameters(), lr=1e-2)
+
+        victim_pred = victim_model(dataset[0].x, dataset[0].edge_index)
+        victim_pred = torch.argmax(victim_pred, dim=-1)
+
+        for _ in tqdm(range(surrogate_epochs), desc='Treino Surrogate', disable=tqdm_off):
+            for batch in loader:
+                surrogate_head.train()
+
+                victim_optimizer.zero_grad()
+                
+                embedding = encoder(batch.x, batch.edge_index)
+
+                pred = surrogate_head(embedding[random_idx])
+                loss = CrossEntropyLoss()(pred, victim_pred[random_idx])
+                
+                loss.backward()
+                
+                surrogate_optimizer.step()
+                
+        surrogate_head.eval()
+        
+        y_true = []
+        y_pred = []
+
+        for batch in loader:    
+            
+            embedding = encoder(batch.x, batch.edge_index)
+            
+            pred = surrogate_head(embedding[batch.test_mask])
+            pred = torch.argmax(pred, dim=-1)
+            
+            y_pred.append(pred.cpu())
+            y_true.append(batch.y[batch.test_mask].cpu())
+            
+        y_pred = torch.cat(y_pred).numpy()
+        y_true = torch.cat(y_true).numpy()
+                
+        print("Acurácia do Surrogate (Random):",accuracy_score(y_true, y_pred))
     
     
 if __name__ == "__main__":
