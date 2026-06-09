@@ -32,7 +32,14 @@ class Encoder(torch.nn.Module):
         
         for layer_idx in range(num_layers):
             start_dim = dim_out if layer_idx else dim_in
-            self.conv_list.append(self.conv(start_dim, dim_out))
+            if conv == 'gin':
+                mlp = torch.nn.Sequential(
+                torch.nn.Linear(start_dim, dim_out),
+                torch.nn.ReLU()
+                )
+                self.conv_list.append(self.conv(mlp))
+            else:
+                self.conv_list.append(self.conv(start_dim, dim_out))
             self.batchnorm_list.append(BatchNorm1d(dim_out))
 
     def forward(self, x, edge_index):

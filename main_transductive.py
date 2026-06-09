@@ -157,7 +157,6 @@ def main():
         print("Acurácia da Vítima:",accuracy_score(y_true, y_pred))
         
         #treinar o embedding do surrogate
-
         encoder = Encoder(dim_in=dataset.num_features, dim_out=embedding_hidden_size, num_layers=embedding_layer_num, conv=surrogate_conv, act=surrogate_act)
         encoder.to(device)
         
@@ -168,6 +167,7 @@ def main():
         optimizer_decoder = torch.optim.Adam(decoder.parameters(), lr=1e-3)
         
         lagraph_loss = LaGraphNodeLoss()
+        ssl_history = []
 
         for _ in tqdm(range(ssl_epochs), desc='Treino SSL', disable=tqdm_off):
             for batch in loader:
@@ -185,11 +185,12 @@ def main():
                 reconstructed = decoder(embedding_original)
 
                 loss = lagraph_loss(batch.x[batch.train_mask], reconstructed[batch.train_mask], embedding_original[batch.train_mask], embedding_noisy[batch.train_mask], mask[batch.train_mask]) 
+                ssl_history.append(loss.item())
                 loss.backward()
                 
                 optimizer_encoder.step()
                 optimizer_decoder.step()
-                
+        
         encoder.eval()
 
         surrogate_head = HeadMLP(embedding_hidden_size, dataset.num_classes).to(device)
