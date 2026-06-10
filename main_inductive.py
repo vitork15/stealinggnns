@@ -89,7 +89,8 @@ def main():
     for num, (victim_cfg, surrogate_cfg, dataset_name) in enumerate(product(victims, surrogates, datasets), 1):
         
         if dataset_name in ['photo','computers']:
-            dataset = Amazon(root='./datasets/Amazon', name=dataset_name, transform=RandomNodeSplit()).to(device)
+            test_size = 3825 if dataset_name == 'photo' else 6876
+            dataset = Amazon(root='./datasets/Amazon', name=dataset_name, transform=RandomNodeSplit(num_test=test_size)).to(device)
             dataset[0].to(device)
             train_mask, test_mask, val_mask = dataset[0].train_mask.to(device), dataset[0].test_mask.to(device), dataset[0].val_mask.to(device)
             train_features, val_features, test_features = dataset.x[train_mask], dataset.x[val_mask], dataset.x[test_mask]
@@ -97,7 +98,8 @@ def main():
             test_edge_index, _ = subgraph(test_mask, dataset.edge_index, relabel_nodes=True)
             val_edge_index, _ = subgraph(val_mask, dataset.edge_index, relabel_nodes=True)
         elif dataset_name in ['cs','physics']:
-            dataset = Coauthor(root='./datasets/Coauthor', name=dataset_name, transform=RandomNodeSplit()).to(device)
+            test_size = 9166 if dataset_name == 'cs' else 17246
+            dataset = Coauthor(root='./datasets/Coauthor', name=dataset_name, transform=RandomNodeSplit(num_test=test_size)).to(device)
             train_mask, test_mask, val_mask = dataset[0].train_mask.to(device), dataset[0].test_mask.to(device), dataset[0].val_mask.to(device)
             train_features, val_features, test_features = dataset.x[train_mask], dataset.x[val_mask], dataset.x[test_mask]
             train_edge_index, _ = subgraph(train_mask, dataset.edge_index, relabel_nodes=True)
