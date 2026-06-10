@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch.nn import Linear, ReLU, PReLU, BatchNorm1d, Dropout
+from torch.nn import Linear, ReLU, PReLU, BatchNorm1d, Dropout, Parameter
 from torch_geometric.nn import GCNConv, GATConv, SAGEConv, GINConv
 from torch.nn.functional import relu, prelu, leaky_relu
 import numpy as np
@@ -30,6 +30,9 @@ class Encoder(torch.nn.Module):
         self.conv = conv_layers[conv]  
         self.act = activations[act]
         
+        if act == 'prelu':
+            self.weight = Parameter(torch.tensor(0.25))
+        
         for layer_idx in range(num_layers):
             start_dim = dim_out if layer_idx else dim_in
             if conv == 'gin':
@@ -45,7 +48,10 @@ class Encoder(torch.nn.Module):
     def forward(self, x, edge_index):
         for i in range(self.num_layers):
             x = self.conv_list[i](x, edge_index)
-            x = self.act(x)
+            if self.act == prelu:
+                x = self.act(x, self.weight)
+            else:
+                x = self.act(x)
             x = self.batchnorm_list[i](x)
 
         return x
