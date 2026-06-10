@@ -212,7 +212,7 @@ def main():
             for batch in loader:
                 surrogate_head.train()
 
-                victim_optimizer.zero_grad()
+                surrogate_optimizer.zero_grad()
                 
                 embedding = encoder(batch.x, batch.edge_index)
 
@@ -255,7 +255,7 @@ def main():
             for batch in loader:
                 surrogate_head.train()
 
-                victim_optimizer.zero_grad()
+                surrogate_optimizer.zero_grad()
                 
                 embedding = encoder(batch.x, batch.edge_index)
 

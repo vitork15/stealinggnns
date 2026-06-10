@@ -71,7 +71,6 @@ def main():
     surrogates = json.loads(cfg.get('surrogates'))
 
     seed = cfg.getint('seed')
-    batch_size = cfg.getint('batch_size')
 
     victim_epochs = cfg.getint('victim_epochs')
     surrogate_epochs = cfg.getint('surrogate_epochs')
@@ -143,17 +142,17 @@ def main():
         
         # treinar o classificador da vitima nos embeddings do dataset rotulado
         for _ in tqdm(range(victim_epochs), desc='Treino Vitima', disable=tqdm_off):
-                victim_model.train()
+            victim_model.train()
 
-                victim_optimizer.zero_grad()
-                
-                pred = victim_model(train_features, train_edge_index)
+            victim_optimizer.zero_grad()
+            
+            pred = victim_model(train_features, train_edge_index)
 
-                loss = CrossEntropyLoss()(pred, dataset.y[train_mask])
-                
-                loss.backward()
-                
-                victim_optimizer.step()
+            loss = CrossEntropyLoss()(pred, dataset.y[train_mask])
+            
+            loss.backward()
+            
+            victim_optimizer.step()
                 
         victim_model.eval()
         
@@ -192,7 +191,7 @@ def main():
         for _ in tqdm(range(surrogate_epochs), desc='Treino Surrogate', disable=tqdm_off):
             surrogate_head.train()
 
-            victim_optimizer.zero_grad()
+            surrogate_optimizer.zero_grad()
             
             embedding = encoder(train_features, train_edge_index)
 
@@ -233,7 +232,7 @@ def main():
         for _ in tqdm(range(surrogate_epochs), desc='Treino Surrogate', disable=tqdm_off):
             surrogate_head.train()
 
-            victim_optimizer.zero_grad()
+            surrogate_optimizer.zero_grad()
             
             embedding = encoder(train_features, train_edge_index)
 
