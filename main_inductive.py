@@ -189,6 +189,9 @@ def main():
         victim_pred = victim_model(train_features, train_edge_index)
         victim_pred = torch.argmax(victim_pred, dim=-1)
         
+        victim_pred_test = victim_model(test_features, test_edge_index)
+        victim_pred_test = torch.argmax(victim_pred_test, dim=-1)
+        
         # treinar o classificador do surrogate nos rotulos obtidos da vitima
         for _ in tqdm(range(surrogate_epochs), desc='Treino Surrogate', disable=tqdm_off):
             surrogate_head.train()
@@ -222,6 +225,7 @@ def main():
         y_true = torch.cat(y_true).numpy()
                 
         print("Acurácia do Surrogate (Select):",accuracy_score(y_true, y_pred))
+        print("Fidelidade do Surrogate (Select):",accuracy_score(victim_pred_test.cpu().numpy(), y_pred))
         
         # agora vamos utilizar os nós escolhidos randomicamente ao invés dos obtidos pelo k-means
         
@@ -262,6 +266,7 @@ def main():
         y_true = torch.cat(y_true).numpy()
                 
         print("Acurácia do Surrogate (Random):",accuracy_score(y_true, y_pred))
+        print("Fidelidade do Surrogate (Random):",accuracy_score(victim_pred_test.cpu().numpy(), y_pred))
     
     
 if __name__ == "__main__":

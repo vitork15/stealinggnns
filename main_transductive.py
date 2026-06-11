@@ -242,6 +242,7 @@ def main():
         y_true = torch.cat(y_true).numpy()
                 
         print("Acurácia do Surrogate (Select):",accuracy_score(y_true, y_pred))
+        print("Fidelidade do Surrogate (Select):",accuracy_score(victim_pred[dataset[0].test_mask].cpu().numpy(), y_pred))
         
         # agora vamos utilizar os nós escolhidos randomicamente ao invés dos obtidos pelo k-means
         
@@ -285,6 +286,7 @@ def main():
         y_true = torch.cat(y_true).numpy()
                 
         print("Acurácia do Surrogate (Random):",accuracy_score(y_true, y_pred))
+        print("Fidelidade do Surrogate (Random):",accuracy_score(victim_pred[dataset[0].test_mask].cpu().numpy(), y_pred))
     
     
 if __name__ == "__main__":
